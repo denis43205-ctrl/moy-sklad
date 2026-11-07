@@ -63,7 +63,15 @@ function renderCalendar(){const n=monthDays();$('monthTitle').textContent=months
 function updateCalendarTotals(){let total=0;const n=monthDays();parts.forEach((p,i)=>{let sum=0;for(let d=1;d<=n;d++)sum+=quantity(p.days?.[dayKey(d)]);total+=sum;const c=$('calendarBody').rows[i]?.querySelector('.rowTotal');if(c)c.textContent=sum});$('monthTotal').textContent=total}
 $('prevMonth').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);renderCalendar()};$('nextMonth').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);renderCalendar()};$('addPart').onclick=()=>{parts.push({name:'',days:{}});save();renderCalendar();$('calendarBody').lastElementChild?.querySelector('input')?.focus()};
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab))});
-function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
+function androidSave(blob,name){
+  if(!(window.AndroidFiles && window.AndroidFiles.save)) return false;
+  const reader=new FileReader();
+  reader.onload=()=>{const result=String(reader.result);window.AndroidFiles.save(name,blob.type||'application/octet-stream',result.substring(result.indexOf(',')+1))};
+  reader.onerror=()=>alert('Не удалось подготовить файл');
+  reader.readAsDataURL(blob);
+  return true;
+}
+function download(blob,name){if(androidSave(blob,name))return;const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
 $('backup').onclick=()=>download(new Blob([JSON.stringify({version:11,...state},null,2)],{type:'application/json'}),'moy_sklad_v11_backup.json');
 $('restore').onclick=()=>$('backupFile').click();$('backupFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(Array.isArray(x)){if(!confirm('Заменить инструменты данными из старой копии?'))return;state.tools=x;tools=state.tools}else if(x&&Array.isArray(x.tools)&&Array.isArray(x.parts)){if(!confirm('Заменить данные из резервной копии?'))return;state={tools:x.tools,parts:x.parts,ships:Array.isArray(x.ships)?x.ships:[],contacts:Array.isArray(x.contacts)?x.contacts:[],employees:Array.isArray(x.employees)?x.employees:[]};({tools,parts,ships,contacts,employees}=state)}else throw Error('format');save();renderTools();renderCalendar();renderSchedule();alert('Копия загружена')}catch(err){alert('Не удалось загрузить копию: неверный формат')}finally{e.target.value=''}};
 const xmlEsc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
@@ -105,7 +113,7 @@ function exportXlsx(){
   ["xl/styles.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="'+ns+'"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
   ["xl/sharedStrings.xml",shared],["xl/worksheets/sheet1.xml",sheet]
  ];
- const url=URL.createObjectURL(makeZip(files)),a=document.createElement("a");
+ const zipBlob=makeZip(files);if(androidSave(zipBlob,"moy_sklad_instrument_"+Date.now()+".xlsx"))return;const url=URL.createObjectURL(zipBlob),a=document.createElement("a");
  a.href=url;a.download="moy_sklad_instrument_"+Date.now()+".xlsx";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 
